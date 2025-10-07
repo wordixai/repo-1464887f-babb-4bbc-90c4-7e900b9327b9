@@ -28,6 +28,32 @@ interface PetStore {
   getPet: (id: string) => Pet | undefined;
 }
 
+const callWebhook = async (petData: any) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No session found for webhook call');
+      return;
+    }
+
+    const response = await supabase.functions.invoke('pet-created-webhook', {
+      body: petData,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
+
+    if (response.error) {
+      console.error('Webhook error:', response.error);
+    } else {
+      console.log('Webhook success:', response.data);
+    }
+  } catch (error) {
+    console.error('Failed to call webhook:', error);
+  }
+};
+
 export const usePetStore = create<PetStore>((set, get) => ({
   pets: [],
   loading: false,
@@ -71,6 +97,9 @@ export const usePetStore = create<PetStore>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // Call webhook after successful pet creation
+      await callWebhook(data);
 
       set((state) => ({ 
         pets: [data, ...state.pets], 

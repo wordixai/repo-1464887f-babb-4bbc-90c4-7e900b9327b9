@@ -17,7 +17,14 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Search, PawPrint, Weight, Calendar, LogOut } from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { PlusCircle, Search, PawPrint, Weight, Calendar, LogOut, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -29,6 +36,8 @@ const Index = () => {
   const [editingPet, setEditingPet] = useState<Pet | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -36,6 +45,7 @@ const Index = () => {
       setLoading(false);
       if (session?.user) {
         fetchPets();
+        fetchWebhookLogs();
       }
     });
 
@@ -45,11 +55,27 @@ const Index = () => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchPets();
+        fetchWebhookLogs();
       }
     });
 
     return () => subscription.unsubscribe();
   }, [fetchPets]);
+
+  const fetchWebhookLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('webhook_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setWebhookLogs(data || []);
+    } catch (error) {
+      console.error('Error fetching webhook logs:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -79,7 +105,8 @@ const Index = () => {
         toast.success('Pet updated successfully!');
       } else {
         await addPet(petData);
-        toast.success('Pet added successfully!');
+        toast.success('Pet added successfully! Webhook triggered.');
+        fetchWebhookLogs(); // Refresh webhook logs
       }
       setEditingPet(undefined);
     } catch (error) {
@@ -137,10 +164,16 @@ const Index = () => {
                 <p className="text-muted-foreground">Manage and track your beloved pets</p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setLogsDialogOpen(true)}>
+                <Activity className="h-4 w-4 mr-2" />
+                Webhook Logs
+              </Button>
+              <Button variant="outline" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -233,6 +266,50 @@ const Index = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Webhook Activity Logs</DialogTitle>
+              <DialogDescription>
+                Recent webhook events triggered by pet creation
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {webhookLogs.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No webhook logs yet</p>
+              ) : (
+                webhookLogs.map((log) => (
+                  <div key={log.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold">{log.event_type}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(log.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        log.status === 'success' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {log.status}
+                      </span>
+                    </div>
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        View payload
+                      </summary>
+                      <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
+                        {JSON.stringify(log.payload, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Toaster />
       </div>
