@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ImageUpload } from '@/components/ImageUpload';
 import { Pet } from '@/store/petStore';
 import { useState, useEffect } from 'react';
 
@@ -69,6 +70,12 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            <ImageUpload
+              value={formData.image_url}
+              onChange={(url) => setFormData({ ...formData, image_url: url })}
+              onRemove={() => setFormData({ ...formData, image_url: '' })}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name *</Label>
@@ -135,7 +142,7 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
                   min="0"
                   step="0.1"
                   value={formData.age}
-                  onChange={(e) => setFormData({ ...formData, age: parseFloat(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, age: parseFloat(e.target.value) || 0 })}
                   required
                 />
               </div>
@@ -147,7 +154,7 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
                   min="0"
                   step="0.1"
                   value={formData.weight}
-                  onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
                   required
                 />
               </div>
@@ -160,17 +167,6 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="image_url">Image URL</Label>
-              <Input
-                id="image_url"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                value={formData.image_url}
-                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
               />
             </div>
 

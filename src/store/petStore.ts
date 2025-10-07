@@ -109,6 +109,20 @@ export const usePetStore = create<PetStore>((set, get) => ({
   deletePet: async (id) => {
     set({ loading: true, error: null });
     try {
+      // Get pet data first to delete associated image
+      const pet = get().pets.find(p => p.id === id);
+      
+      // Delete image from storage if exists
+      if (pet?.image_url) {
+        const urlParts = pet.image_url.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === 'pet-images');
+        if (bucketIndex !== -1) {
+          const filePath = urlParts.slice(bucketIndex + 1).join('/');
+          await supabase.storage.from('pet-images').remove([filePath]);
+        }
+      }
+
+      // Delete pet record
       const { error } = await supabase
         .from('pets')
         .delete()
