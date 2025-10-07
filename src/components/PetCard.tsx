@@ -14,9 +14,9 @@ export const PetCard = ({ pet, onEdit, onDelete }: PetCardProps) => {
   return (
     <Card className="card-hover overflow-hidden">
       <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100">
-        {pet.imageUrl ? (
+        {pet.image_url ? (
           <img 
-            src={pet.imageUrl} 
+            src={pet.image_url} 
             alt={pet.name}
             className="w-full h-full object-cover"
           />

@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
 
 export interface Pet {
   id: string;
+  user_id?: string;
   name: string;
   species: string;
   breed: string;
@@ -9,56 +11,121 @@ export interface Pet {
   weight: number;
   color: string;
   gender: 'male' | 'female';
-  imageUrl?: string;
+  image_url?: string;
   notes?: string;
-  createdAt: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 interface PetStore {
   pets: Pet[];
-  addPet: (pet: Omit<Pet, 'id' | 'createdAt'>) => void;
-  updatePet: (id: string, pet: Partial<Pet>) => void;
-  deletePet: (id: string) => void;
+  loading: boolean;
+  error: string | null;
+  fetchPets: () => Promise<void>;
+  addPet: (pet: Omit<Pet, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updatePet: (id: string, pet: Partial<Pet>) => Promise<void>;
+  deletePet: (id: string) => Promise<void>;
   getPet: (id: string) => Pet | undefined;
 }
 
 export const usePetStore = create<PetStore>((set, get) => ({
-  pets: [
-    {
-      id: '1',
-      name: 'Max',
-      species: 'Dog',
-      breed: 'Golden Retriever',
-      age: 3,
-      weight: 30,
-      color: 'Golden',
-      gender: 'male',
-      imageUrl: 'https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400',
-      notes: 'Loves to play fetch',
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: '2',
-      name: 'Luna',
-      species: 'Cat',
-      breed: 'Persian',
-      age: 2,
-      weight: 4.5,
-      color: 'White',
-      gender: 'female',
-      imageUrl: 'https://images.unsplash.com/photo-1573865526739-10c1d3a1abf8?w=400',
-      notes: 'Very calm and loves cuddles',
-      createdAt: new Date('2024-02-20')
+  pets: [],
+  loading: false,
+  error: null,
+
+  fetchPets: async () => {
+    set({ loading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        set({ pets: [], loading: false });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('pets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      set({ pets: data || [], loading: false });
+    } catch (error: any) {
+      console.error('Error fetching pets:', error);
+      set({ error: error.message, loading: false });
     }
-  ],
-  addPet: (pet) => set((state) => ({
-    pets: [...state.pets, { ...pet, id: Date.now().toString(), createdAt: new Date() }]
-  })),
-  updatePet: (id, updatedPet) => set((state) => ({
-    pets: state.pets.map((pet) => pet.id === id ? { ...pet, ...updatedPet } : pet)
-  })),
-  deletePet: (id) => set((state) => ({
-    pets: state.pets.filter((pet) => pet.id !== id)
-  })),
+  },
+
+  addPet: async (pet) => {
+    set({ loading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('pets')
+        .insert([{ ...pet, user_id: user.id }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set((state) => ({ 
+        pets: [data, ...state.pets], 
+        loading: false 
+      }));
+    } catch (error: any) {
+      console.error('Error adding pet:', error);
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  updatePet: async (id, updatedPet) => {
+    set({ loading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('pets')
+        .update({ ...updatedPet, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      set((state) => ({
+        pets: state.pets.map((pet) => pet.id === id ? data : pet),
+        loading: false
+      }));
+    } catch (error: any) {
+      console.error('Error updating pet:', error);
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  deletePet: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('pets')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      set((state) => ({
+        pets: state.pets.filter((pet) => pet.id !== id),
+        loading: false
+      }));
+    } catch (error: any) {
+      console.error('Error deleting pet:', error);
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
   getPet: (id) => get().pets.find((pet) => pet.id === id)
 }));

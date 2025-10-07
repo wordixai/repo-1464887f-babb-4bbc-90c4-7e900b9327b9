@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePetStore, Pet } from '@/store/petStore';
+import { supabase } from '@/lib/supabase';
+import { Auth } from '@/components/Auth';
 import { PetCard } from '@/components/PetCard';
 import { PetDialog } from '@/components/PetDialog';
 import { StatsCard } from '@/components/StatsCard';
@@ -15,16 +17,54 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Search, PawPrint, Weight, Calendar } from 'lucide-react';
+import { PlusCircle, Search, PawPrint, Weight, Calendar, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 
 const Index = () => {
-  const { pets, addPet, updatePet, deletePet } = usePetStore();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { pets, fetchPets, addPet, updatePet, deletePet } = usePetStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        fetchPets();
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchPets();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchPets]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <PawPrint className="h-12 w-12 text-purple-600 animate-pulse mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
 
   const filteredPets = pets.filter(pet =>
     pet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -32,15 +72,19 @@ const Index = () => {
     pet.breed.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSave = (petData: Omit<Pet, 'id' | 'createdAt'>) => {
-    if (editingPet) {
-      updatePet(editingPet.id, petData);
-      toast.success('Pet updated successfully!');
-    } else {
-      addPet(petData);
-      toast.success('Pet added successfully!');
+  const handleSave = async (petData: Omit<Pet, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    try {
+      if (editingPet) {
+        await updatePet(editingPet.id, petData);
+        toast.success('Pet updated successfully!');
+      } else {
+        await addPet(petData);
+        toast.success('Pet added successfully!');
+      }
+      setEditingPet(undefined);
+    } catch (error) {
+      toast.error('Failed to save pet');
     }
-    setEditingPet(undefined);
   };
 
   const handleEdit = (pet: Pet) => {
@@ -52,17 +96,26 @@ const Index = () => {
     setDeleteId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId) {
-      deletePet(deleteId);
-      toast.success('Pet deleted successfully!');
-      setDeleteId(null);
+      try {
+        await deletePet(deleteId);
+        toast.success('Pet deleted successfully!');
+        setDeleteId(null);
+      } catch (error) {
+        toast.error('Failed to delete pet');
+      }
     }
   };
 
   const handleAddNew = () => {
     setEditingPet(undefined);
     setDialogOpen(true);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast.success('Signed out successfully');
   };
 
   const totalWeight = pets.reduce((sum, pet) => sum + pet.weight, 0);
@@ -72,15 +125,23 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 pet-gradient rounded-lg">
-              <PawPrint className="h-8 w-8 text-white" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-3 pet-gradient rounded-lg">
+                <PawPrint className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Pet Management
+                </h1>
+                <p className="text-muted-foreground">Manage and track your beloved pets</p>
+              </div>
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Pet Management
-            </h1>
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
-          <p className="text-muted-foreground ml-16">Manage and track your beloved pets</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

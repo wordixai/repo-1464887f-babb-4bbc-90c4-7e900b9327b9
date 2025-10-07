@@ -10,12 +10,12 @@ import { useState, useEffect } from 'react';
 interface PetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (pet: Omit<Pet, 'id' | 'createdAt'>) => void;
+  onSave: (pet: Omit<Pet, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => void;
   pet?: Pet;
 }
 
 export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) => {
-  const [formData, setFormData] = useState<Omit<Pet, 'id' | 'createdAt'>>({
+  const [formData, setFormData] = useState<Omit<Pet, 'id' | 'user_id' | 'created_at' | 'updated_at'>>({
     name: '',
     species: 'Dog',
     breed: '',
@@ -23,7 +23,7 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
     weight: 0,
     color: '',
     gender: 'male',
-    imageUrl: '',
+    image_url: '',
     notes: ''
   });
 
@@ -37,7 +37,7 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
         weight: pet.weight,
         color: pet.color,
         gender: pet.gender,
-        imageUrl: pet.imageUrl || '',
+        image_url: pet.image_url || '',
         notes: pet.notes || ''
       });
     } else {
@@ -49,7 +49,7 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
         weight: 0,
         color: '',
         gender: 'male',
-        imageUrl: '',
+        image_url: '',
         notes: ''
       });
     }
@@ -164,13 +164,13 @@ export const PetDialog = ({ open, onOpenChange, onSave, pet }: PetDialogProps) =
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
+              <Label htmlFor="image_url">Image URL</Label>
               <Input
-                id="imageUrl"
+                id="image_url"
                 type="url"
                 placeholder="https://example.com/image.jpg"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                value={formData.image_url}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
               />
             </div>
 
