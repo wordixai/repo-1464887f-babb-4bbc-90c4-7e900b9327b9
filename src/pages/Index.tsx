@@ -1,11 +1,179 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { usePetStore, Pet } from '@/store/petStore';
+import { PetCard } from '@/components/PetCard';
+import { PetDialog } from '@/components/PetDialog';
+import { StatsCard } from '@/components/StatsCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
+import { PlusCircle, Search, PawPrint, Weight, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 const Index = () => {
+  const { pets, addPet, updatePet, deletePet } = usePetStore();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPet, setEditingPet] = useState<Pet | undefined>();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const filteredPets = pets.filter(pet =>
+    pet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    pet.species.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    pet.breed.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSave = (petData: Omit<Pet, 'id' | 'createdAt'>) => {
+    if (editingPet) {
+      updatePet(editingPet.id, petData);
+      toast.success('Pet updated successfully!');
+    } else {
+      addPet(petData);
+      toast.success('Pet added successfully!');
+    }
+    setEditingPet(undefined);
+  };
+
+  const handleEdit = (pet: Pet) => {
+    setEditingPet(pet);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) {
+      deletePet(deleteId);
+      toast.success('Pet deleted successfully!');
+      setDeleteId(null);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingPet(undefined);
+    setDialogOpen(true);
+  };
+
+  const totalWeight = pets.reduce((sum, pet) => sum + pet.weight, 0);
+  const avgAge = pets.length > 0 ? (pets.reduce((sum, pet) => sum + pet.age, 0) / pets.length).toFixed(1) : 0;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 pet-gradient rounded-lg">
+              <PawPrint className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Pet Management
+            </h1>
+          </div>
+          <p className="text-muted-foreground ml-16">Manage and track your beloved pets</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <StatsCard 
+            title="Total Pets" 
+            value={pets.length} 
+            icon={PawPrint}
+            color="bg-gradient-to-br from-purple-500 to-purple-600"
+          />
+          <StatsCard 
+            title="Total Weight" 
+            value={`${totalWeight.toFixed(1)} kg`} 
+            icon={Weight}
+            color="bg-gradient-to-br from-pink-500 to-pink-600"
+          />
+          <StatsCard 
+            title="Average Age" 
+            value={`${avgAge} years`} 
+            icon={Calendar}
+            color="bg-gradient-to-br from-blue-500 to-blue-600"
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search pets by name, species, or breed..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={handleAddNew} className="pet-gradient">
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add New Pet
+          </Button>
+        </div>
+
+        {filteredPets.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 mb-4">
+              <PawPrint className="h-10 w-10 text-purple-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">No pets found</h3>
+            <p className="text-muted-foreground mb-4">
+              {searchQuery ? 'Try a different search term' : 'Start by adding your first pet'}
+            </p>
+            {!searchQuery && (
+              <Button onClick={handleAddNew} className="pet-gradient">
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Your First Pet
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredPets.map((pet) => (
+              <PetCard
+                key={pet.id}
+                pet={pet}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+
+        <PetDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSave={handleSave}
+          pet={editingPet}
+        />
+
+        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this pet from your records.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Toaster />
       </div>
     </div>
   );
